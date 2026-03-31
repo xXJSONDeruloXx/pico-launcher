@@ -19,7 +19,7 @@
 #include "picoLoaderBootstrap.h"
 #include "romBrowser/DisplayMode/RomBrowserDisplayModeFactory.h"
 #include "romBrowser/Theme/Material/MaterialThemeFileIconFactory.h"
-#include "romBrowser/views/NdsGameDetailsBottomSheetView.h"
+#include "romBrowser/views/SaveSlotsBottomSheetView.h"
 #include "romBrowser/views/cheats/CheatsBottomSheetView.h"
 #include "romBrowser/views/DisplaySettingsBottomSheetView.h"
 #include "bgm/AudioStreamPlayer.h"
@@ -261,6 +261,11 @@ void App::HandleTrigger(RomBrowserStateTrigger trigger, RomBrowserState newState
             HandleShowGameInfoTrigger();
             break;
         }
+        case RomBrowserStateTrigger::ShowSaveSlots:
+        {
+            HandleShowSaveSlotsTrigger();
+            break;
+        }
         case RomBrowserStateTrigger::HideGameInfo:
         {
             HandleHideGameInfoTrigger();
@@ -296,15 +301,18 @@ void App::HandleTrigger(RomBrowserStateTrigger trigger, RomBrowserState newState
 
 void App::HandleShowGameInfoTrigger()
 {
-    // auto gameInfoDialog = std::make_unique<NdsGameDetailsBottomSheetView>(
-    //     &_romBrowserController, &_theme->GetMaterialColorScheme(), _theme->GetFontRepository());
-    // gameInfoDialog->SetGraphics(_chipViewVram);
-    // _dialogPresenter.ShowDialog(std::move(gameInfoDialog));
-
     auto cheatsViewModel = std::make_unique<CheatsViewModel>(_romBrowserController.GetTriggerFileInfo(), &_romBrowserController);
     auto cheatsDialog = std::make_unique<CheatsBottomSheetView>(
         std::move(cheatsViewModel), &_theme->GetMaterialColorScheme(), _theme->GetFontRepository(), &_focusManager);
     _dialogPresenter.ShowDialog(std::move(cheatsDialog));
+}
+
+void App::HandleShowSaveSlotsTrigger()
+{
+    auto saveSlotsDialog = std::make_unique<SaveSlotsBottomSheetView>(
+        &_romBrowserController, &_theme->GetMaterialColorScheme(), _theme->GetFontRepository());
+    saveSlotsDialog->SetGraphics(_chipViewVram);
+    _dialogPresenter.ShowDialog(std::move(saveSlotsDialog));
 }
 
 void App::HandleHideGameInfoTrigger()

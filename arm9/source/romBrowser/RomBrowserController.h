@@ -24,7 +24,9 @@ public:
 
     void NavigateToPath(const TCHAR* name) override;
     void LaunchFile(const FileInfo& fileInfo) override;
+    void LaunchState(const FileInfo& fileInfo) override;
     void ShowGameInfo(const FileInfo& fileInfo) override;
+    void ShowSaveSlots(const FileInfo& fileInfo) override;
     void HideGameInfo() override;
     void ShowDisplaySettings() override;
     void HideDisplaySettings() override;
@@ -50,6 +52,8 @@ public:
     }
 
     virtual const FileInfo& GetTriggerFileInfo() const override { return _triggerFileInfo; }
+    u32 GetTriggerSaveSlot() const override;
+    void SetTriggerSaveSlot(u32 saveSlot) override;
 
 private:
     IAppSettingsService* _appSettingsService;
@@ -68,6 +72,7 @@ private:
     std::unique_ptr<CoverRepository> _coverRepository;
     ExtensionFileTypeProvider _fileTypeProvider;
     std::unique_ptr<ICheatRepository> _cheatRepository;
+    bool _launchFromState = false;
 
     void HandleTrigger();
     void HandleNavigateTrigger();
@@ -75,6 +80,9 @@ private:
     void HandleLaunchTrigger();
     void HandleChangeDisplayModeTrigger();
     void UpdateLastUsedFilepath();
-    void SetPicoLoaderParams() const;
+    void SetPicoLoaderParams();
     void LoadCheats() const;
+
+    bool TryGetTriggerFilePath(char* filePath, u32 filePathLength) const;
+    bool TryGetTriggerStatePath(char* filePath, u32 filePathLength) const;
 };

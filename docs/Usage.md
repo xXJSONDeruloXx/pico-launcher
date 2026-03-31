@@ -10,9 +10,13 @@ From here you can browse your SD card to launch homebrew and games.
 
 - DPAD: Move the selector.
 - A: Open a folder, or to launch a homebrew or game.
+- START: Resume a `.state.bin` dump for the selected `.nds` game, when present.
 - B: Go to the parent folder or close a menu.
 - L and R: Scroll quickly when there are many items in a folder.
 - Y: Open the cheats panel (see [Cheats](Cheats.md)).
+- X: Open the save slot panel for `.nds` games.
+
+When a retail `.nds` game is launched from Pico Launcher, you can return to Pico Launcher in-game with `L + R + START + SELECT`. Pico Loader will also write a raw RAM dump to `<rom>.state.bin` before returning.
 
 The back arrow on the top left of the bottom screen can also be used to go up to the parent folder.
 
@@ -48,3 +52,4 @@ Settings are stored on your SD card in `/_pico/settings.json`. They can be edite
 - `theme`: Specifies the folder name of the theme to use. If the theme cannot be found, a default fallback theme will be used.
 - `lastUsedFilePath` - Specifies the path of the most recently launched homebrew or game, such that it can be selected the next time Pico Launcher is started. It is automatically updated by Pico Launcher.
 - `fileAssociations` - See [FileAssociations.md](/docs/FileAssociations.md) for information about how to use this setting.
+- `saveSlots` - Automatically managed per-game save slot assignments. Slot 1 uses the normal `.sav` file, while other slots use `.slotN.sav` alongside the ROM.

@@ -3,6 +3,7 @@
 #include "core/String.h"
 #include "RomBrowserDisplaySettings.h"
 #include "FileAssociation.h"
+#include "SaveSlotAssignment.h"
 
 class AppSettings
 {
@@ -14,4 +15,7 @@ public:
 
     std::unique_ptr<FileAssociation[]> fileAssociations;
     u32 numberOfFileAssociations = 0;
+
+    std::unique_ptr<SaveSlotAssignment[]> saveSlots;
+    u32 numberOfSaveSlots = 0;
 };

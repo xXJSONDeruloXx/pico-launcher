@@ -53,6 +53,15 @@ void RomBrowserViewModel::ItemActivated()
     }
 }
 
+void RomBrowserViewModel::LaunchState()
+{
+    const auto& item = _fileInfoManager->GetItem(_selectedItem);
+    if (item.GetFileType() == &NdsFileType::sInstance)
+    {
+        _romBrowserController->LaunchState(item);
+    }
+}
+
 void RomBrowserViewModel::NavigateUp()
 {
     _romBrowserController->NavigateUp();
@@ -64,5 +73,14 @@ void RomBrowserViewModel::ShowGameInfo()
     if (item.GetFileType() == &NdsFileType::sInstance)
     {
         _romBrowserController->ShowGameInfo(item);
+    }
+}
+
+void RomBrowserViewModel::ShowSaveSlots()
+{
+    const auto& item = _fileInfoManager->GetItem(_selectedItem);
+    if (item.GetFileType() == &NdsFileType::sInstance)
+    {
+        _romBrowserController->ShowSaveSlots(item);
     }
 }

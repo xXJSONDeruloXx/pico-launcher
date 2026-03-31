@@ -7,7 +7,7 @@
 
 #pragma GCC optimize("Os")
 
-#define JSON_RESERVED_SIZE  2048
+#define JSON_RESERVED_SIZE  8192
 
 #define KEY_LANGUAGE                 "language"
 #define KEY_ROM_BROWSER_LAYOUT       "romBrowserLayout"
@@ -16,6 +16,7 @@
 #define KEY_LAST_USED_FILE_PATH      "lastUsedFilePath"
 #define KEY_FILE_ASSOCIATIONS        "fileAssociations"
 #define KEY_FILE_ASSOCIATIONS_APPLICATION_PATH  "appPath"
+#define KEY_SAVE_SLOTS               "saveSlots"
 
 static const char* serializeRomBrowserLayout(RomBrowserLayout romBrowserLayout)
 {
@@ -121,6 +122,38 @@ static void serializeFileAssociations(DynamicJsonDocument& json, const AppSettin
     }
 }
 
+static bool tryParseSaveSlots(const JsonObjectConst& json, AppSettings* appSettings)
+{
+    if (json.isNull())
+    {
+        return false;
+    }
+
+    appSettings->saveSlots = std::make_unique_for_overwrite<SaveSlotAssignment[]>(json.size());
+    int i = 0;
+    for (auto item : json)
+    {
+        u32 saveSlot = item.value().as<u32>();
+        if (saveSlot < 1)
+            saveSlot = 1;
+        else if (saveSlot > 3)
+            saveSlot = 3;
+        appSettings->saveSlots[i++] = SaveSlotAssignment(item.key().c_str(), saveSlot);
+    }
+    appSettings->numberOfSaveSlots = i;
+    return true;
+}
+
+static void serializeSaveSlots(DynamicJsonDocument& json, const AppSettings* appSettings)
+{
+    auto jsonObject = json[KEY_SAVE_SLOTS].to<JsonObject>();
+    for (u32 i = 0; i < appSettings->numberOfSaveSlots; i++)
+    {
+        const auto& saveSlot = appSettings->saveSlots[i];
+        jsonObject[saveSlot.romPath.GetString()] = saveSlot.saveSlot;
+    }
+}
+
 static std::unique_ptr<u8[]> writeJson(const AppSettings* appSettings, u32& length)
 {
     DynamicJsonDocument json(JSON_RESERVED_SIZE);
@@ -130,6 +163,7 @@ static std::unique_ptr<u8[]> writeJson(const AppSettings* appSettings, u32& leng
     json[KEY_THEME] = appSettings->theme.GetString();
     json[KEY_LAST_USED_FILE_PATH] = appSettings->lastUsedFilePath.GetString();
     serializeFileAssociations(json, appSettings);
+    serializeSaveSlots(json, appSettings);
 
     u32 outputSize = measureJsonPretty(json);
     std::unique_ptr<u8[]> fileData(new(cache_align) u8[outputSize]);
@@ -182,6 +216,7 @@ static void readJson(AppSettings* appSettings, const JsonDocument& json)
     }
 
     tryParseFileAssociations(json[KEY_FILE_ASSOCIATIONS], appSettings);
+    tryParseSaveSlots(json[KEY_SAVE_SLOTS], appSettings);
 }
 
 bool JsonAppSettingsSerializer::Deserialize(AppSettings* appSettings, const char* filePath) const

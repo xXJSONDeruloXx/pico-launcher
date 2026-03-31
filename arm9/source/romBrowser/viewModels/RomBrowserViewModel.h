@@ -25,8 +25,10 @@ public:
     void SetIconFrameCounter(u32 iconFrameCounter) { _iconFrameCounter = iconFrameCounter; }
 
     void ItemActivated();
+    void LaunchState();
     void NavigateUp();
     void ShowGameInfo();
+    void ShowSaveSlots();
 
 private:
     IRomBrowserController* _romBrowserController;

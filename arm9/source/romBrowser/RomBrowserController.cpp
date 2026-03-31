@@ -1,15 +1,65 @@
 #include "common.h"
 #include <array>
+#include <string.h>
+#include "core/mini-printf.h"
 #include "picoLoaderBootstrap.h"
 #include "PicoLoaderProcess.h"
 #include "FileType/ExtensionFileTypeProvider.h"
 #include "FileType/FileType.h"
+#include "FileType/Nds/NdsFileType.h"
 #include "SdFolderFactory.h"
 #include "services/settings/IAppSettingsService.h"
 #include "cheats/UsrCheatRepositoryFactory.h"
 #include "cheats/EmptyCheatRepository.h"
 #include "cheats/PicoLoaderCheatDataFactory.h"
 #include "RomBrowserController.h"
+
+static constexpr const char* sSaveStateArgumentPrefix = "__pico_state=";
+
+static int findSaveSlotAssignmentIndex(const AppSettings& appSettings, const char* romPath)
+{
+    for (u32 i = 0; i < appSettings.numberOfSaveSlots; i++)
+    {
+        if (!strcmp(appSettings.saveSlots[i].romPath.GetString(), romPath))
+            return i;
+    }
+    return -1;
+}
+
+static u32 getSaveSlotForPath(const AppSettings& appSettings, const char* romPath)
+{
+    int index = findSaveSlotAssignmentIndex(appSettings, romPath);
+    if (index < 0)
+        return 1;
+
+    u32 saveSlot = appSettings.saveSlots[index].saveSlot;
+    if (saveSlot == 0)
+        return 1;
+    if (saveSlot > 3)
+        return 3;
+    return saveSlot;
+}
+
+static void buildSavePath(const char* romPath, u32 saveSlot, char* savePath, u32 savePathLength)
+{
+    StringUtil::Copy(savePath, romPath, savePathLength);
+    char* extension = strrchr(savePath, '.');
+    if (!extension)
+        extension = &savePath[strlen(savePath)];
+
+    if (saveSlot <= 1)
+    {
+        extension[0] = '.';
+        extension[1] = 's';
+        extension[2] = 'a';
+        extension[3] = 'v';
+        extension[4] = 0;
+    }
+    else
+    {
+        mini_snprintf(extension, savePathLength - (extension - savePath), ".slot%d.sav", saveSlot);
+    }
+}
 
 RomBrowserController::RomBrowserController(
     IAppSettingsService* appSettingsService, TaskQueueBase* ioTaskQueue,
@@ -27,6 +77,14 @@ void RomBrowserController::NavigateToPath(const TCHAR* name)
 void RomBrowserController::LaunchFile(const FileInfo& fileInfo)
 {
     _triggerFileInfo = FileInfo(fileInfo);
+    _launchFromState = false;
+    _stateMachine.Fire(RomBrowserStateTrigger::Launch);
+}
+
+void RomBrowserController::LaunchState(const FileInfo& fileInfo)
+{
+    _triggerFileInfo = FileInfo(fileInfo);
+    _launchFromState = true;
     _stateMachine.Fire(RomBrowserStateTrigger::Launch);
 }
 
@@ -36,8 +94,23 @@ void RomBrowserController::ShowGameInfo(const FileInfo& fileInfo)
     _stateMachine.Fire(RomBrowserStateTrigger::ShowGameInfo);
 }
 
+void RomBrowserController::ShowSaveSlots(const FileInfo& fileInfo)
+{
+    _triggerFileInfo = FileInfo(fileInfo);
+    _stateMachine.Fire(RomBrowserStateTrigger::ShowSaveSlots);
+}
+
 void RomBrowserController::HideGameInfo()
 {
+    if (_saveSettingsPending)
+    {
+        _saveSettingsPending = false;
+        _ioTaskQueue->Enqueue([this] (const vu8& cancelRequested)
+        {
+            _appSettingsService->Save();
+            return TaskResult<void>::Completed();
+        });
+    }
     _stateMachine.Fire(RomBrowserStateTrigger::HideGameInfo);
 }
 
@@ -216,7 +289,7 @@ void RomBrowserController::UpdateLastUsedFilepath()
     _appSettingsService->Save();
 }
 
-void RomBrowserController::SetPicoLoaderParams() const
+void RomBrowserController::SetPicoLoaderParams()
 {
     auto loadParams = pload_getLoadParams();
     loadParams->savePath[0] = 0;
@@ -224,12 +297,123 @@ void RomBrowserController::SetPicoLoaderParams() const
     loadParams->argumentsLength = 0;
     if (_triggerFileInfo.GetFileType()->TrySetLaunchParameters(loadParams, _navigatePath))
     {
+        if (_triggerFileInfo.GetFileType() == &NdsFileType::sInstance)
+        {
+            u32 saveSlot = getSaveSlotForPath(_appSettingsService->GetAppSettings(), loadParams->romPath);
+            buildSavePath(loadParams->romPath, saveSlot, loadParams->savePath, sizeof(loadParams->savePath));
+
+            if (_launchFromState)
+            {
+                char statePath[256];
+                if (TryGetTriggerStatePath(statePath, sizeof(statePath)))
+                {
+                    FILINFO fileInfo;
+                    if (f_stat(statePath, &fileInfo) == FR_OK)
+                    {
+                        mini_snprintf(loadParams->arguments, sizeof(loadParams->arguments), "%s%s", sSaveStateArgumentPrefix, statePath);
+                        loadParams->argumentsLength = strlen(loadParams->arguments) + 1;
+                    }
+                }
+            }
+        }
+        _launchFromState = false;
         gProcessManager.Goto<PicoLoaderProcess>();
     }
     else
     {
+        _launchFromState = false;
         LOG_FATAL("Failed to set launch parameters.\n");
     }
+}
+
+u32 RomBrowserController::GetTriggerSaveSlot() const
+{
+    char filePath[256];
+    if (!TryGetTriggerFilePath(filePath, sizeof(filePath)))
+        return 1;
+
+    return getSaveSlotForPath(_appSettingsService->GetAppSettings(), filePath);
+}
+
+void RomBrowserController::SetTriggerSaveSlot(u32 saveSlot)
+{
+    if (saveSlot > 3)
+        saveSlot = 3;
+
+    char filePath[256];
+    if (!TryGetTriggerFilePath(filePath, sizeof(filePath)))
+        return;
+
+    auto& appSettings = _appSettingsService->GetAppSettings();
+    int index = findSaveSlotAssignmentIndex(appSettings, filePath);
+    if (saveSlot <= 1)
+    {
+        if (index >= 0)
+        {
+            std::unique_ptr<SaveSlotAssignment[]> saveSlots;
+            if (appSettings.numberOfSaveSlots > 1)
+            {
+                saveSlots = std::make_unique_for_overwrite<SaveSlotAssignment[]>(appSettings.numberOfSaveSlots - 1);
+                for (u32 i = 0, j = 0; i < appSettings.numberOfSaveSlots; i++)
+                {
+                    if ((int)i != index)
+                    {
+                        saveSlots[j++] = appSettings.saveSlots[i];
+                    }
+                }
+            }
+            appSettings.saveSlots = std::move(saveSlots);
+            appSettings.numberOfSaveSlots--;
+            _saveSettingsPending = true;
+        }
+        return;
+    }
+
+    if (index >= 0)
+    {
+        if (appSettings.saveSlots[index].saveSlot != saveSlot)
+        {
+            appSettings.saveSlots[index].saveSlot = saveSlot;
+            _saveSettingsPending = true;
+        }
+        return;
+    }
+
+    auto saveSlots = std::make_unique_for_overwrite<SaveSlotAssignment[]>(appSettings.numberOfSaveSlots + 1);
+    for (u32 i = 0; i < appSettings.numberOfSaveSlots; i++)
+    {
+        saveSlots[i] = appSettings.saveSlots[i];
+    }
+    saveSlots[appSettings.numberOfSaveSlots] = SaveSlotAssignment(filePath, saveSlot);
+    appSettings.saveSlots = std::move(saveSlots);
+    appSettings.numberOfSaveSlots++;
+    _saveSettingsPending = true;
+}
+
+bool RomBrowserController::TryGetTriggerFilePath(char* filePath, u32 filePathLength) const
+{
+    if (f_getcwd(filePath, filePathLength) != FR_OK)
+        return false;
+
+    int idx = strlcat(filePath, "/", filePathLength);
+    if (idx >= 2 && filePath[idx - 2] == '/')
+    {
+        filePath[idx - 1] = 0;
+    }
+    strlcat(filePath, _triggerFileInfo.GetFileName(), filePathLength);
+    return true;
+}
+
+bool RomBrowserController::TryGetTriggerStatePath(char* filePath, u32 filePathLength) const
+{
+    if (!TryGetTriggerFilePath(filePath, filePathLength))
+        return false;
+
+    char* extension = strrchr(filePath, '.');
+    if (!extension)
+        extension = &filePath[strlen(filePath)];
+    mini_snprintf(extension, filePathLength - (extension - filePath), ".state.bin");
+    return true;
 }
 
 void RomBrowserController::LoadCheats() const

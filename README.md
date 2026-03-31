@@ -16,6 +16,9 @@ This repository contains Pico Launcher, which is a front-end for [Pico Loader](h
 - [Material Design 3 and custom themes](docs/Themes.md)
 - Support for background music (see [Themes](docs/Themes.md))
 - Support for cheats (See [Cheats](docs/Cheats.md))
+- Per-game save slot selection
+- In-game `L + R + START + SELECT` return to Pico Launcher for retail games, with a raw `<rom>.state.bin` RAM dump
+- `START` on a game resumes its `<rom>.state.bin` RAM dump
 
 General usage documentation can be found here: [Usage](docs/Usage.md).
 
