@@ -17,7 +17,7 @@ This repository contains Pico Launcher, which is a front-end for [Pico Loader](h
 - Support for background music (see [Themes](docs/Themes.md))
 - Support for cheats (See [Cheats](docs/Cheats.md))
 - Per-game save slot selection
-- In-game `L + R + START + SELECT` return to Pico Launcher for retail games, with a `<rom>.state.bin` snapshot containing RAM, WRAM, VRAM, ARM9 ITCM/DTCM, CPU context, palette/OAM, and partial display/DMA/audio/TCM-control state
+- In-game `DOWN + START + SELECT` return to Pico Launcher for retail games, with a `<rom>.state.bin` snapshot containing RAM, WRAM, VRAM, ARM9 ITCM/DTCM, CPU context, palette/OAM, and partial display/DMA/audio/TCM-control state
 - `START` on a game resumes its `<rom>.state.bin` snapshot
 
 General usage documentation can be found here: [Usage](docs/Usage.md).
