@@ -16,7 +16,7 @@ From here you can browse your SD card to launch homebrew and games.
 - Y: Open the cheats panel (see [Cheats](Cheats.md)).
 - X: Open the save slot panel for `.nds` games.
 
-When a retail `.nds` game is launched from Pico Launcher, you can return to Pico Launcher in-game with `L + R + START + SELECT`. Pico Loader will also write a `<rom>.state.bin` snapshot containing RAM, shared/ARM7 WRAM, VRAM, CPU context, palette, OAM, and partial ARM9/ARM7 IO state including display, DMA, timers, and ARM7 audio state before returning.
+When a retail `.nds` game is launched from Pico Launcher, you can return to Pico Launcher in-game with `L + R + START + SELECT`. Pico Loader will also write a `<rom>.state.bin` snapshot containing RAM, shared/ARM7 WRAM, VRAM, CPU context, palette, OAM, and partial ARM9/ARM7 IO state including display, DMA, timers, and ARM7 audio state before returning. Recent snapshots also include ROM identity metadata so mismatched resume attempts can be rejected.
 
 The back arrow on the top left of the bottom screen can also be used to go up to the parent folder.
 
